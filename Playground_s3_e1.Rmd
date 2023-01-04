@@ -52,7 +52,6 @@ prepare recipe
 
 ```{r}
 set.seed(123)
-
 house_split <-
   train_data %>%
   initial_split(strata = MedHouseVal)

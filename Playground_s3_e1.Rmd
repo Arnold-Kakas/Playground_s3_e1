@@ -16,6 +16,8 @@ library(patchwork)
 library(skimr)
 library(corrplot)
 library(tidymodels)
+library(viridis)
+library(GGally)
 ```
 
 ```{r}
@@ -23,7 +25,12 @@ train_data <- import("Data/train.csv")
 test_data <- import("Data/test.csv")
 ```
 
-
+```{r}
+skim(train_data)
+```
+```{r}
+skim(test_data)
+```
 
 ```{r}
 train_data %>% select(c(2,3,4,5,6,7,8,9,10)) %>% cor() %>% corrplot(method = 'number')
@@ -33,7 +40,7 @@ train_data %>% select(c(2,3,4,5,6,7,8,9,10)) %>% cor() %>% corrplot(method = 'nu
 test_data %>% select(c(2,3,4,5,6,7,8,9)) %>% cor() %>% corrplot(method = 'number')
 ```
 ```{r}
-train_data %>%
+train_data %>% 
   ggplot(mapping=aes(x=Latitude,y=Longitude))+
 geom_point(aes(size=Population, color=MedHouseVal),alpha=.2)+
 scale_color_viridis(discrete = FALSE, option = "C")+
@@ -41,9 +48,53 @@ scale_fill_viridis(discrete = FALSE) +
 theme_bw()
 ```
 
+prepare recipe
 
-prepare recipy
 ```{r}
-lm_rec <- recipe()
+set.seed(123)
+
+house_split <-
+  train_data %>%
+  initial_split(strata = MedHouseVal)
+house_train <- training(house_split)
+house_test <- testing(house_split)
+
+set.seed(234)
+house_folds <- vfold_cv(house_train, strata = MedHouseVal)
+
+house_rec <-
+  recipe(MedHouseVal ~ ., data = house_train) %>% 
+  step_BoxCox(c(MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup))
+
+xgb_spec <-
+  boost_tree(
+    trees = tune(),
+    mtry = tune(),
+    min_n = tune(),
+    learn_rate = 0.01
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+xgb_wf <- workflow(house_rec, xgb_spec)
+xgb_wf
+
+library(finetune)
+doParallel::registerDoParallel()
+
+set.seed(234)
+xgb_house_rs <-
+  tune_race_anova(
+    xgb_wf,
+    house_folds,
+    grid = 20,
+    control = control_race(verbose_elim = TRUE)
+  )
+
+xgb_game_rs
 ```
 
+
+# https://medium.com/the-data-journal/the-proper-way-to-display-regression-outputs-in-r-4abab45e33d5
+# use step_BoxCox
+# https://juliasilge.com/blog/board-games/

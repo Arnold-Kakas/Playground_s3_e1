@@ -8,3 +8,42 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r message=FALSE, warning=FALSE}
+library(rio)
+library(tidyverse)
+library(patchwork)
+library(skimr)
+library(corrplot)
+library(tidymodels)
+```
+
+```{r}
+train_data <- import("Data/train.csv")
+test_data <- import("Data/test.csv")
+```
+
+
+
+```{r}
+train_data %>% select(c(2,3,4,5,6,7,8,9,10)) %>% cor() %>% corrplot(method = 'number')
+```
+
+```{r}
+test_data %>% select(c(2,3,4,5,6,7,8,9)) %>% cor() %>% corrplot(method = 'number')
+```
+```{r}
+train_data %>%
+  ggplot(mapping=aes(x=Latitude,y=Longitude))+
+geom_point(aes(size=Population, color=MedHouseVal),alpha=.2)+
+scale_color_viridis(discrete = FALSE, option = "C")+
+scale_fill_viridis(discrete = FALSE) +
+theme_bw()
+```
+
+
+prepare recipy
+```{r}
+lm_rec <- recipe()
+```
+

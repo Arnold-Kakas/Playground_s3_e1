@@ -60,7 +60,7 @@ prepare recipe
 set.seed(123)
 house_split <-
   train_data %>%
-  select(-c(id)) %>%
+  select(-c(id, Latitude, Longitude)) %>%
   initial_split(strata = MedHouseVal)
 house_train <- training(house_split)
 house_test <- testing(house_split)
@@ -111,6 +111,7 @@ xgb_house_rs <-
   )
 
 xgb_best <- select_best(xgb_house_rs, "rmse")
+
 ```
 
 ```{r}
@@ -118,6 +119,7 @@ xgb_last <-
   xgb_wf %>%
   finalize_workflow(select_best(xgb_house_rs, "rmse")) %>%
   last_fit(house_split)
+xgb_last$.metrics
 ```
 
 ```{r}
@@ -150,7 +152,15 @@ predictions <- prediction_xgb_fit %>%
   bind_cols(house_test)
 ```
 
+```{r}
+result <- prediction_xgb_fit %>% 
+  predict(test_data) %>% 
+  bind_cols(test_data) %>% 
+  select(c(id, .pred)) %>% 
+  rename
+
+export(result, "Data/submission.csv")
+```
+
 
 # https://medium.com/the-data-journal/the-proper-way-to-display-regression-outputs-in-r-4abab45e33d5
-# use step_BoxCox
-# https://juliasilge.com/blog/board-games/

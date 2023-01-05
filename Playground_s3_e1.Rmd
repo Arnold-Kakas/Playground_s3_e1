@@ -157,7 +157,7 @@ result <- prediction_xgb_fit %>%
   predict(test_data) %>% 
   bind_cols(test_data) %>% 
   select(c(id, .pred)) %>% 
-  rename
+  rename(MedHouseVal = .pred)
 
 export(result, "Data/submission.csv")
 ```

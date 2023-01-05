@@ -79,7 +79,7 @@ xgb_spec <-
     min_n = tune(),
     sample_size = tune(),  ## randomness
     mtry = tune(), ## randomness
-    learn_rate = 0.1
+    learn_rate = 0.01
   ) %>%
   set_engine("xgboost") %>%
   set_mode("regression")

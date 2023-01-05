@@ -33,19 +33,25 @@ skim(test_data)
 ```
 
 ```{r}
-train_data %>% select(c(2,3,4,5,6,7,8,9,10)) %>% cor() %>% corrplot(method = 'number')
+train_data %>%
+  select(c(2, 3, 4, 5, 6, 7, 8, 9, 10)) %>%
+  cor() %>%
+  corrplot(method = "number")
 ```
 
 ```{r}
-test_data %>% select(c(2,3,4,5,6,7,8,9)) %>% cor() %>% corrplot(method = 'number')
+test_data %>%
+  select(c(2, 3, 4, 5, 6, 7, 8, 9)) %>%
+  cor() %>%
+  corrplot(method = "number")
 ```
 ```{r}
-train_data %>% 
-  ggplot(mapping=aes(x=Latitude,y=Longitude))+
-geom_point(aes(size=Population, color=MedHouseVal),alpha=.2)+
-scale_color_viridis(discrete = FALSE, option = "C")+
-scale_fill_viridis(discrete = FALSE) +
-theme_bw()
+train_data %>%
+  ggplot(mapping = aes(x = Latitude, y = Longitude)) +
+  geom_point(aes(size = Population, color = MedHouseVal), alpha = .2) +
+  scale_color_viridis(discrete = FALSE, option = "C") +
+  scale_fill_viridis(discrete = FALSE) +
+  theme_bw()
 ```
 
 prepare recipe
@@ -54,6 +60,7 @@ prepare recipe
 set.seed(123)
 house_split <-
   train_data %>%
+  select(-c(id)) %>%
   initial_split(strata = MedHouseVal)
 house_train <- training(house_split)
 house_test <- testing(house_split)
@@ -62,35 +69,65 @@ set.seed(234)
 house_folds <- vfold_cv(house_train, strata = MedHouseVal)
 
 house_rec <-
-  recipe(MedHouseVal ~ ., data = house_train) %>% 
+  recipe(MedHouseVal ~ ., data = house_train) %>%
   step_BoxCox(c(MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup))
 
 xgb_spec <-
   boost_tree(
     trees = tune(),
-    mtry = tune(),
+    tree_depth = tune(), 
     min_n = tune(),
-    learn_rate = 0.01
+    loss_reduction = tune(), ## first four: model complexity
+    sample_size = tune(),  ## randomness
+    mtry = tune(), ## randomness
+    learn_rate = tune(), ## step size
   ) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
 
+xgb_grid <- grid_latin_hypercube(
+  trees(),
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), house_train),
+  learn_rate(),
+  size = 30
+)
+
 xgb_wf <- workflow(house_rec, xgb_spec)
 xgb_wf
+```
 
+```{r}
 library(finetune)
 doParallel::registerDoParallel()
 
 set.seed(234)
 xgb_house_rs <-
-  tune_race_anova(
+  tune_grid(
     xgb_wf,
-    house_folds,
-    grid = 20,
-    control = control_race(verbose_elim = TRUE)
+    resamples = house_folds,
+    grid = xgb_grid,
+    control = control_grid(save_pred = TRUE)
   )
 
-xgb_game_rs
+show_best(xgb_house_rs)
+```
+
+```{r}
+xgb_last <-
+  xgb_wf %>%
+  finalize_workflow(select_best(xgb_house_rs, "rmse")) %>%
+  last_fit(house_split)
+```
+
+```{r}
+library(vip)
+
+xgb_fit <- extract_fit_parsnip(xgb_last)
+vip(xgb_fit, geom = "point", num_features = 12)
 ```
 
 

@@ -60,7 +60,7 @@ prepare recipe
 set.seed(123)
 house_split <-
   train_data %>%
-  select(-c(id, Latitude, Longitude)) %>%
+  select(-c(id)) %>%
   initial_split(strata = MedHouseVal)
 house_train <- training(house_split)
 house_test <- testing(house_split)

@@ -77,10 +77,9 @@ xgb_spec <-
     trees = tune(),
     tree_depth = tune(), 
     min_n = tune(),
-    loss_reduction = tune(), ## first four: model complexity
     sample_size = tune(),  ## randomness
     mtry = tune(), ## randomness
-    learn_rate = tune(), ## step size
+    learn_rate = 0.1
   ) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
@@ -89,11 +88,9 @@ xgb_grid <- grid_latin_hypercube(
   trees(),
   tree_depth(),
   min_n(),
-  loss_reduction(),
   sample_size = sample_prop(),
   finalize(mtry(), house_train),
-  learn_rate(),
-  size = 30
+  size = 20
 )
 
 xgb_wf <- workflow(house_rec, xgb_spec)
@@ -113,7 +110,7 @@ xgb_house_rs <-
     control = control_grid(save_pred = TRUE)
   )
 
-show_best(xgb_house_rs)
+xgb_best <- select_best(xgb_house_rs, "rmse")
 ```
 
 ```{r}
@@ -128,6 +125,29 @@ library(vip)
 
 xgb_fit <- extract_fit_parsnip(xgb_last)
 vip(xgb_fit, geom = "point", num_features = 12)
+```
+```{r}
+prediction_xgb_rec <- boost_tree(
+    trees = xgb_best$trees,
+    tree_depth = xgb_best$tree_depth, 
+    min_n = xgb_best$min_n,
+    sample_size = xgb_best$sample_size,  ## randomness
+    mtry = xgb_best$mtry, ## randomness
+    learn_rate = 0.1
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+prediction_xgb_wf <- xgb_wf %>%
+  update_model(prediction_xgb_rec)
+
+prediction_xgb_fit <- 
+  prediction_xgb_wf %>% 
+  fit(house_train)
+
+predictions <- prediction_xgb_fit %>% 
+  predict(house_test) %>% 
+  bind_cols(house_test)
 ```
 
 
